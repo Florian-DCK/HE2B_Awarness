@@ -3,6 +3,7 @@ import './globals.css';
 import { NextIntlClientProvider, hasLocale } from 'next-intl';
 import { notFound } from 'next/navigation';
 import { routing } from '@/i18n/routing';
+import He2bBar from '../components/He2bBar';
 
 export const metadata: Metadata = {
 	title: 'New App',
@@ -35,6 +36,7 @@ export default async function RootLayout({
 		<html lang={locale}>
 			<body className={`antialiased`}>
 				<NextIntlClientProvider locale={locale} messages={messages}>
+					<He2bBar />
 					{children}
 				</NextIntlClientProvider>
 			</body>

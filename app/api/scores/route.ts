@@ -33,13 +33,21 @@ export async function GET() {
     });
 
     // Formate les résultats pour retourner les champs attendus
-    const formattedScores = scores.map((s) => ({
+    const formattedScores = scores.map(
+      (
+        s: {
+          firstName: string;
+          lastName: string;
+          _max: { score: number | null; maxCombo: number | null; level: number | null };
+        },
+      ) => ({
       firstName: s.firstName,
       lastName: s.lastName,
       score: s._max.score,
       maxCombo: s._max.maxCombo,
       level: s._max.level,
-    }));
+      }),
+    );
 
     return NextResponse.json({ scores: formattedScores });
   } catch {

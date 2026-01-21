@@ -20,3 +20,13 @@ model PlayerRegistration {
   email     String
   createdAt DateTime @default(now())
 }
+
+model Scoreboard {
+  id        String   @id @default(cuid())
+  firstName String
+  lastName  String
+  score     Int
+  maxCombo  Int
+  level     Int
+  createdAt DateTime @default(now())
+}

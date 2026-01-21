@@ -324,6 +324,14 @@ export default function GamePage() {
     router.push(`/${locale}`);
   }, [router, locale]);
 
+  const readCookie = (name: string) => {
+    if (typeof document === "undefined") return "";
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; ${name}=`);
+    if (parts.length < 2) return "";
+    return parts.pop()?.split(";").shift() ?? "";
+  };
+
   useEffect(() => {
     const skinParam = searchParams.get("skin");
     const difficultyParam = searchParams.get("difficulty");
@@ -349,6 +357,7 @@ export default function GamePage() {
   const comboRef = useRef(0);
   const laneCooldownRef = useRef([0, 0, 0, 0]);
   const LANE_COOLDOWN_MS = 150;
+  const scoreSubmittedRef = useRef(false);
 
   useEffect(() => {
     comboRef.current = combo;
@@ -778,6 +787,24 @@ export default function GamePage() {
       setLeaderboard((prev) =>
         [...prev, newEntry].sort((a, b) => b.score - a.score).slice(0, 5),
       );
+      if (!scoreSubmittedRef.current) {
+        scoreSubmittedRef.current = true;
+        const firstName = readCookie("he2b_firstName");
+        const lastName = readCookie("he2b_lastName");
+        if (firstName && lastName) {
+          fetch("/api/scores", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              firstName,
+              lastName,
+              score,
+              maxCombo,
+              level: currentLevel,
+            }),
+          }).catch(() => {});
+        }
+      }
       setScreen("end");
     }
   }, [
@@ -806,6 +833,7 @@ export default function GamePage() {
     setShowLevelTransition(false);
     setLevelTimeRemaining(LEVEL_DURATION);
     objectIdRef.current = 0;
+    scoreSubmittedRef.current = false;
     setScreen("game");
     setTimeout(() => showComment("start"), 500);
     initAudio();
@@ -826,9 +854,8 @@ export default function GamePage() {
   }, [screen, togglePause]);
 
   return (
-    <main className="flex min-h-[100dvh] items-center justify-center bg-[#0a0a14]">
-      <div className="h-[100dvh] w-full bg-[#1a1a2e] md:h-[90vh] md:max-h-[900px] md:max-w-[480px] md:rounded-[20px] md:shadow-[0_10px_50px_rgba(0,0,0,0.5)]">
-        <div className="relative h-full w-full overflow-hidden bg-[linear-gradient(180deg,#1a1a2e_0%,#0f0f1a_100%)]">
+    <main className="h-[100dvh] bg-[#0a0a14]">
+      <div className="relative h-[100dvh] w-full overflow-hidden bg-[linear-gradient(180deg,#1a1a2e_0%,#0f0f1a_100%)]">
                     {screen === "game" && (
             <div className="relative flex h-full flex-col">
               <He2bBar />
@@ -1176,7 +1203,6 @@ export default function GamePage() {
               </div>
             </div>
           )}
-        </div>
       </div>
 
       <style jsx global>{`

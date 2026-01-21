@@ -2,10 +2,12 @@
 import Image from "next/image";
 import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
-import { useState, FormEvent } from "react";
+import { useEffect, useState, FormEvent } from "react";
 import SkinSelector from "../components/SkinSelector";
 import DifficultySelector from "../components/DifficultySelector";
 import CTAButton from "../components/CTAButton";
+import He2bBar from "../components/He2bBar";
+import Footer from "../components/Footer";
 
 export default function Home() {
   const t = useTranslations("HomePage");
@@ -61,7 +63,19 @@ export default function Home() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [form, setForm] = useState({ firstName: "", lastName: "", email: "" });
   const [formError, setFormError] = useState("");
+  const [hasRegistration, setHasRegistration] = useState(false);
   const selectedSkin = SKINS[selectedSkinId];
+  const readCookie = (name: string) => {
+    if (typeof document === "undefined") return "";
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; ${name}=`);
+    if (parts.length < 2) return "";
+    return parts.pop()?.split(";").shift() ?? "";
+  };
+  const writeCookie = (name: string, value: string, days = 180) => {
+    const maxAge = days * 24 * 60 * 60;
+    document.cookie = `${name}=${encodeURIComponent(value)}; Max-Age=${maxAge}; Path=/; SameSite=Lax`;
+  };
   const getDifficultyValue = (label: string) => {
     if (label.toLowerCase().includes("difficile")) return "3";
     if (label.toLowerCase().includes("normal")) return "2";
@@ -69,6 +83,14 @@ export default function Home() {
   };
   const handleStart = () => {
     setFormError("");
+    if (hasRegistration) {
+      router.push(
+        `/${locale}/game?skin=${selectedSkinId}&difficulty=${getDifficultyValue(
+          difficulty,
+        )}`,
+      );
+      return;
+    }
     setIsModalOpen(true);
   };
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
@@ -97,6 +119,9 @@ export default function Home() {
         if (!response.ok) {
           throw new Error("Erreur serveur");
         }
+        writeCookie("he2b_firstName", trimmed.firstName);
+        writeCookie("he2b_lastName", trimmed.lastName);
+        setHasRegistration(true);
         setIsModalOpen(false);
         router.push(
           `/${locale}/game?skin=${selectedSkinId}&difficulty=${getDifficultyValue(
@@ -113,8 +138,19 @@ export default function Home() {
         setIsSubmitting(false);
       });
   };
+  useEffect(() => {
+    const firstName = readCookie("he2b_firstName");
+    const lastName = readCookie("he2b_lastName");
+    if (firstName && lastName) {
+      setHasRegistration(true);
+    }
+  }, []);
+
   return (
     <main className="flex flex-col justify-center items-center h-screen gap-5">
+      <div className="w-full absolute top-0 left-0">
+        <He2bBar />
+      </div>
       <Image
         className="float"
         src={selectedSkin.image}
@@ -143,10 +179,7 @@ export default function Home() {
         onSelect={(value: string) => setDifficulty(value)}
         options={["🌱 Facile", "⚡ Normal", "🔥 Difficile"]}
       />
-      <CTAButton
-        label="Jouer"
-        onClick={handleStart}
-      />
+      <CTAButton label="Jouer" onClick={handleStart} />
       <p className=" text-gray-400 text-sm text-center">
         <span>5 niveaux de 20 secondes !</span>
         <br />
@@ -250,6 +283,7 @@ export default function Home() {
           </div>
         </div>
       )}
+      <Footer />
     </main>
   );
 }

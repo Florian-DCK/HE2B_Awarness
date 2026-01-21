@@ -40,6 +40,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid email." }, { status: 400 });
   }
 
+  // Check for existing registration
+  const existing = await prisma.playerRegistration.findFirst({
+    where: { email },
+  });
+  if (existing) {
+    return NextResponse.json({ ok: true });
+  }
+
   try {
     await prisma.playerRegistration.create({
       data: {

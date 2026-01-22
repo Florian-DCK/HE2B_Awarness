@@ -118,6 +118,14 @@ type LeaderboardEntry = {
   date: string;
 };
 
+type ScoreEntry = {
+  firstName: string;
+  lastName: string;
+  score: number | null;
+  maxCombo: number | null;
+  level: number | null;
+};
+
 const STUDY_OBJECTS = [
   { type: "cours", emoji: "📚", label: "Cours", category: "study", points: 10 },
   {
@@ -311,6 +319,7 @@ export default function GamePage() {
   const [showLevelTransition, setShowLevelTransition] = useState(false);
   const [levelTimeRemaining, setLevelTimeRemaining] = useState(LEVEL_DURATION);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
+  const [topScores, setTopScores] = useState<ScoreEntry[]>([]);
   const [endMessage, setEndMessage] = useState("");
   const [gameEndReason, setGameEndReason] = useState<"time" | "focus" | "">("");
   const [isPaused, setIsPaused] = useState(false);
@@ -824,6 +833,31 @@ export default function GamePage() {
     showLevelTransition,
   ]);
 
+  useEffect(() => {
+    if (screen !== "end") return;
+    let isActive = true;
+
+    fetch("/api/scores")
+      .then((res) => res.json())
+      .then((data) => {
+        if (!isActive) return;
+        const list = Array.isArray(data?.scores) ? data.scores : [];
+        const topThree = list
+          .filter((entry: ScoreEntry) => Number.isFinite(entry?.score))
+          .sort(
+            (a: ScoreEntry, b: ScoreEntry) =>
+              (b.score ?? 0) - (a.score ?? 0),
+          )
+          .slice(0, 3);
+        setTopScores(topThree);
+      })
+      .catch(() => {});
+
+    return () => {
+      isActive = false;
+    };
+  }, [screen]);
+
   const startGame = () => {
     setFocus(GAME_CONFIG.FOCUS_MAX);
     setObjects([]);
@@ -858,6 +892,19 @@ export default function GamePage() {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [screen, togglePause]);
+
+  const displayScores =
+    topScores.length > 0
+      ? topScores.map((entry) => ({
+          score: entry.score ?? 0,
+          maxCombo: entry.maxCombo ?? 0,
+          level: entry.level ?? 0,
+        }))
+      : leaderboard.slice(0, 3).map((entry) => ({
+          score: entry.score,
+          maxCombo: entry.maxCombo,
+          level: entry.level,
+        }));
 
   return (
     <main className="h-[100dvh] bg-[#0a0a14]">
@@ -1143,13 +1190,13 @@ export default function GamePage() {
                 }
               </div>
 
-              {leaderboard.length > 0 && (
+              {displayScores.length > 0 && (
                 <div className="w-full max-w-[320px] rounded-2xl bg-gray-50 p-4">
                   <div className="mb-2 text-center text-xs font-extrabold text-gray-700">
                     Meilleurs scores
                   </div>
                   <div className="flex flex-col gap-2">
-                    {leaderboard.map((entry, index) => {
+                    {displayScores.map((entry, index) => {
                       const isCurrent =
                         entry.score === score && entry.maxCombo === maxCombo;
                       return (

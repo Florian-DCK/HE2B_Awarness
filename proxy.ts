@@ -55,6 +55,9 @@ export default function middleware(request: NextRequest) {
   }
 
   if (!isOpenNow()) {
+    if (pathname.includes("/admin")) {
+      return intlMiddleware(request);
+    }
     if (pathname.startsWith("/api")) {
       return NextResponse.json(
         { error: "Site closed (10h-18h)." },

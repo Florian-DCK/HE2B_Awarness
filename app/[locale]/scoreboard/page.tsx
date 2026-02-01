@@ -9,14 +9,27 @@ import Footer from "@/app/components/Footer";
 type ScoreEntry = {
   firstName: string;
   lastName: string;
+  pseudo?: string | null;
   score: number | null;
   maxCombo: number | null;
   level: number | null;
 };
 
-const formatName = (firstName: string, lastName: string) => {
-  const safeFirst = firstName.trim();
-  const safeLastInitial = lastName.trim().slice(0, 1).toUpperCase();
+const decodeValue = (value: string) => {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+};
+
+const formatName = (entry: ScoreEntry) => {
+  const pseudo = decodeValue(entry.pseudo?.trim() ?? "");
+  if (pseudo) return pseudo;
+  const safeFirst = decodeValue(entry.firstName.trim());
+  const safeLastInitial = decodeValue(entry.lastName.trim())
+    .slice(0, 1)
+    .toUpperCase();
   if (!safeFirst && !safeLastInitial) return "Anonyme";
   if (!safeLastInitial) return safeFirst;
   return `${safeFirst} ${safeLastInitial}.`;
@@ -65,18 +78,18 @@ export default function ScoreboardPage() {
   return (
     <main className="min-h-[100dvh] bg-white">
       <He2bBar />
-      <div className="mx-auto w-full max-w-[1100px] px-6 py-10">
-        <div className="grid items-center gap-10 lg:grid-cols-[1.15fr_0.85fr]">
+      <div className="mx-auto flex min-h-[calc(100dvh-80px)] w-full max-w-[1100px] items-center px-6 py-8">
+        <div className="flex w-full flex-col gap-8 lg:grid lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
           <section className="flex flex-col items-center text-center lg:items-start lg:text-left">
             <img
               src="/assets/diplomePoulpe.png"
               alt="Poulpe HE2B"
-              className="float h-24 w-24 object-contain lg:h-28 lg:w-28"
+              className="float h-24 w-24 object-contain"
             />
-            <h1 className="mt-3 text-he2b text-3xl font-extrabold uppercase lg:text-4xl">
+            <h1 className="mt-3 text-he2b text-3xl font-extrabold uppercase">
               JONGLE AVEC TA VIE D&apos;ÉTUDIANT
             </h1>
-            <p className="mt-2 max-w-[520px] text-sm text-gray-500">
+            <p className="mt-2 text-sm text-gray-500">
               Attrape les bons objets, évite les malus et garde ton focus.
               Chaque partie dure 90 secondes. Prêt à battre le top 10 ?
             </p>
@@ -94,7 +107,7 @@ export default function ScoreboardPage() {
               )}
             </div>
 
-            <div className="mt-6 rounded-2xl bg-gray-50 px-5 py-4 text-left shadow-sm">
+            <div className="mt-6 w-full rounded-2xl bg-gray-50 px-5 py-4 text-left shadow-sm">
               <div className="text-xs font-bold uppercase tracking-[0.2em] text-[#00BFB3]">
                 Défi du stand
               </div>
@@ -122,12 +135,10 @@ export default function ScoreboardPage() {
             <div className="rounded-3xl border border-gray-100 bg-white p-5 shadow-[0_10px_30px_rgba(0,0,0,0.08)]">
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="text-xs font-extrabold text-gray-700">
+                  <div className="text-sm font-extrabold text-gray-700">
                     Meilleurs scores
                   </div>
-                  <div className="text-[11px] text-gray-400">
-                    Top 10 du stand
-                  </div>
+                  <div className="text-xs text-gray-400">Top 10 du stand</div>
                 </div>
                 <span className="rounded-full bg-[linear-gradient(135deg,#D91A5B,#9B4F9B)] px-3 py-1 text-[11px] font-bold text-white">
                   Leaderboard
@@ -153,13 +164,13 @@ export default function ScoreboardPage() {
               )}
 
               {!loading && !error && scores.length > 0 && (
-                <div className="mt-4 flex flex-col gap-2">
+                <div className="mt-4 flex flex-col gap-3">
                   {scores.map((entry, index) => (
                     <div
                       key={`${entry.firstName}-${entry.lastName}-${index}`}
-                      className="flex items-center gap-3 rounded-2xl bg-gray-50 px-3 py-3 text-xs font-semibold text-gray-700"
+                      className="flex items-center gap-3 rounded-2xl bg-gray-50 px-4 py-4 text-sm font-semibold text-gray-700"
                     >
-                      <span className="w-7 text-base">
+                      <span className="w-9 text-lg">
                         {index === 0
                           ? "🏆"
                           : index === 1
@@ -168,8 +179,8 @@ export default function ScoreboardPage() {
                               ? "🥉"
                               : `${index + 1}.`}
                       </span>
-                      <span className="flex-1 text-left text-[12px] font-semibold text-gray-600">
-                        {formatName(entry.firstName, entry.lastName)}
+                      <span className="flex-1 text-left text-[13px] font-semibold text-gray-700">
+                        {formatName(entry)}
                       </span>
                       <span className="font-extrabold text-he2b">
                         {entry.score ?? 0} pts

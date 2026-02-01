@@ -121,6 +121,7 @@ type LeaderboardEntry = {
 type ScoreEntry = {
   firstName: string;
   lastName: string;
+  pseudo?: string | null;
   score: number | null;
   maxCombo: number | null;
   level: number | null;
@@ -320,6 +321,7 @@ export default function GamePage() {
   const [levelTimeRemaining, setLevelTimeRemaining] = useState(LEVEL_DURATION);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [topScores, setTopScores] = useState<ScoreEntry[]>([]);
+  const [isLimitReached, setIsLimitReached] = useState(false);
   const [endMessage, setEndMessage] = useState("");
   const [gameEndReason, setGameEndReason] = useState<"time" | "focus" | "">("");
   const [isPaused, setIsPaused] = useState(false);
@@ -338,7 +340,12 @@ export default function GamePage() {
     const value = `; ${document.cookie}`;
     const parts = value.split(`; ${name}=`);
     if (parts.length < 2) return "";
-    return parts.pop()?.split(";").shift() ?? "";
+    const raw = parts.pop()?.split(";").shift() ?? "";
+    try {
+      return decodeURIComponent(raw);
+    } catch {
+      return raw;
+    }
   };
 
   useEffect(() => {
@@ -367,6 +374,7 @@ export default function GamePage() {
   const laneCooldownRef = useRef([0, 0, 0, 0]);
   const LANE_COOLDOWN_MS = 150;
   const scoreSubmittedRef = useRef(false);
+  const submitPromiseRef = useRef<Promise<void> | null>(null);
 
   useEffect(() => {
     comboRef.current = combo;
@@ -806,18 +814,24 @@ export default function GamePage() {
         scoreSubmittedRef.current = true;
         const firstName = readCookie("he2b_firstName");
         const lastName = readCookie("he2b_lastName");
-        if (firstName && lastName) {
-          fetch("/api/scores", {
+        const email = readCookie("he2b_email");
+        const pseudo = readCookie("he2b_pseudo");
+        if (firstName && lastName && email) {
+          submitPromiseRef.current = fetch("/api/scores", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               firstName,
               lastName,
+              email,
+              pseudo,
               score,
               maxCombo,
               level: currentLevel,
             }),
-          }).catch(() => {});
+          })
+            .then(() => {})
+            .catch(() => {});
         }
       }
       setScreen("end");
@@ -833,30 +847,56 @@ export default function GamePage() {
     showLevelTransition,
   ]);
 
+  const loadTopScores = useCallback(async () => {
+    try {
+      const res = await fetch("/api/scores");
+      const data = await res.json();
+      const list = Array.isArray(data?.scores) ? data.scores : [];
+      const topThree = list
+        .filter((entry: ScoreEntry) => Number.isFinite(entry?.score))
+        .sort(
+          (a: ScoreEntry, b: ScoreEntry) =>
+            (b.score ?? 0) - (a.score ?? 0),
+        )
+        .slice(0, 3);
+      setTopScores(topThree);
+    } catch {
+      // Ignore scoreboard fetch errors on end screen
+    }
+  }, []);
+
   useEffect(() => {
     if (screen !== "end") return;
     let isActive = true;
 
-    fetch("/api/scores")
-      .then((res) => res.json())
-      .then((data) => {
-        if (!isActive) return;
-        const list = Array.isArray(data?.scores) ? data.scores : [];
-        const topThree = list
-          .filter((entry: ScoreEntry) => Number.isFinite(entry?.score))
-          .sort(
-            (a: ScoreEntry, b: ScoreEntry) =>
-              (b.score ?? 0) - (a.score ?? 0),
-          )
-          .slice(0, 3);
-        setTopScores(topThree);
-      })
-      .catch(() => {});
+    const syncScores = async () => {
+      if (submitPromiseRef.current) {
+        await submitPromiseRef.current;
+      }
+      if (isActive) {
+        await loadTopScores();
+      }
+    };
+
+    syncScores();
+
+    const email = readCookie("he2b_email");
+    if (email) {
+      fetch(`/api/score-limit?email=${encodeURIComponent(email)}`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (!isActive) return;
+          if (data?.blocked) {
+            setIsLimitReached(true);
+          }
+        })
+        .catch(() => {});
+    }
 
     return () => {
       isActive = false;
     };
-  }, [screen]);
+  }, [screen, loadTopScores]);
 
   const startGame = () => {
     setFocus(GAME_CONFIG.FOCUS_MAX);
@@ -874,6 +914,8 @@ export default function GamePage() {
     setLevelTimeRemaining(LEVEL_DURATION);
     objectIdRef.current = 0;
     scoreSubmittedRef.current = false;
+    submitPromiseRef.current = null;
+    setIsLimitReached(false);
     setScreen("game");
     setTimeout(() => showComment("start"), 500);
     initAudio();
@@ -896,11 +938,13 @@ export default function GamePage() {
   const displayScores =
     topScores.length > 0
       ? topScores.map((entry) => ({
+          pseudo: entry.pseudo ?? "",
           score: entry.score ?? 0,
           maxCombo: entry.maxCombo ?? 0,
           level: entry.level ?? 0,
         }))
       : leaderboard.slice(0, 3).map((entry) => ({
+          pseudo: readCookie("he2b_pseudo"),
           score: entry.score,
           maxCombo: entry.maxCombo,
           level: entry.level,
@@ -1217,9 +1261,16 @@ export default function GamePage() {
                                   ? "🥉"
                                   : `${index + 1}.`}
                           </span>
-                          <span className="flex-1 font-extrabold text-he2b">
-                            {entry.score} pts
-                          </span>
+                          <div className="flex-1">
+                            {entry.pseudo && (
+                              <div className="text-[10px] font-semibold text-gray-500">
+                                {entry.pseudo}
+                              </div>
+                            )}
+                            <div className="font-extrabold text-he2b">
+                              {entry.score} pts
+                            </div>
+                          </div>
                           <span className="text-[10px] font-semibold text-[#9B4F9B]">
                             Niv.{entry.level}
                           </span>
@@ -1240,12 +1291,14 @@ export default function GamePage() {
                 >
                   Menu
                 </button>
-                <button
-                  className="rounded-full bg-[linear-gradient(135deg,#D91A5B,#9B4F9B)] px-6 py-3 text-sm font-bold text-white shadow transition active:scale-95"
-                  onClick={startGame}
-                >
-                  Rejouer
-                </button>
+                {!isLimitReached && (
+                  <button
+                    className="rounded-full bg-[linear-gradient(135deg,#D91A5B,#9B4F9B)] px-6 py-3 text-sm font-bold text-white shadow transition active:scale-95"
+                    onClick={startGame}
+                  >
+                    Rejouer
+                  </button>
+                )}
               </div>
             </div>
             <div className="border-t border-gray-100 px-2 py-2 text-center text-[11px] text-gray-400">

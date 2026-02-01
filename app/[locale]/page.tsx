@@ -61,20 +61,92 @@ export default function Home() {
   const [difficulty, setDifficulty] = useState<string>("⚡ Normal");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [form, setForm] = useState({ firstName: "", lastName: "", email: "" });
+  const [form, setForm] = useState({
+    firstName: "",
+    lastName: "",
+    email: "",
+    pseudo: "",
+  });
   const [formError, setFormError] = useState("");
   const [hasRegistration, setHasRegistration] = useState(false);
+  const [isLimitReached, setIsLimitReached] = useState(false);
   const selectedSkin = SKINS[selectedSkinId];
+  const PSEUDO_ADJECTIVES = [
+    "Tentaculaire",
+    "Studieux",
+    "Focus",
+    "Brave",
+    "Curieux",
+    "Vif",
+    "Zen",
+    "Agile",
+    "Malin",
+    "He2b",
+    "Campus",
+    "Royal",
+    "Bruxellois",
+    "Academique",
+    "Diplome",
+    "Motivant",
+    "Tenace",
+    "Endurant",
+    "Energique",
+    "Concentre",
+    "Creatif",
+    "Astucieux",
+    "Lumineux",
+    "Optimiste",
+    "Solide",
+    "Rapide",
+    "Fute",
+    "Calme",
+    "Curieusement",
+    "Audacieux",
+    "Studieuse",
+    "Methodique",
+    "Ponctuel",
+    "Bienveillant",
+    "Solaire",
+    "Epique",
+    "Nomade",
+    "Octo",
+    "Poulpy",
+  ];
+  const PSEUDO_NOUNS = [
+    "Poulpy",
+    "Poulpe",
+    "Poulpyx",
+    "Poulpito",
+    "Poulpissime",
+    "Poulpex",
+    "PoulpyOne",
+    "Poulpito",
+    "Poulpiz",
+    "Poulpo",
+    "Poulpito",
+  ];
   const readCookie = (name: string) => {
     if (typeof document === "undefined") return "";
     const value = `; ${document.cookie}`;
     const parts = value.split(`; ${name}=`);
     if (parts.length < 2) return "";
-    return parts.pop()?.split(";").shift() ?? "";
+    const raw = parts.pop()?.split(";").shift() ?? "";
+    try {
+      return decodeURIComponent(raw);
+    } catch {
+      return raw;
+    }
   };
   const writeCookie = (name: string, value: string, days = 180) => {
     const maxAge = days * 24 * 60 * 60;
     document.cookie = `${name}=${encodeURIComponent(value)}; Max-Age=${maxAge}; Path=/; SameSite=Lax`;
+  };
+  const generatePseudo = () => {
+    const adjective =
+      PSEUDO_ADJECTIVES[Math.floor(Math.random() * PSEUDO_ADJECTIVES.length)];
+    const noun = PSEUDO_NOUNS[Math.floor(Math.random() * PSEUDO_NOUNS.length)];
+    const number = Math.floor(10 + Math.random() * 90);
+    return `${adjective} ${noun} ${number}`;
   };
   const getDifficultyValue = (label: string) => {
     if (label.toLowerCase().includes("difficile")) return "3";
@@ -83,6 +155,10 @@ export default function Home() {
   };
   const handleStart = () => {
     setFormError("");
+    if (isLimitReached) {
+      router.push(`/${locale}/scoreboard?limit=1`);
+      return;
+    }
     if (hasRegistration) {
       router.push(
         `/${locale}/game?skin=${selectedSkinId}&difficulty=${getDifficultyValue(
@@ -91,6 +167,10 @@ export default function Home() {
       );
       return;
     }
+    setForm((prev) => ({
+      ...prev,
+      pseudo: prev.pseudo || generatePseudo(),
+    }));
     setIsModalOpen(true);
   };
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
@@ -100,8 +180,14 @@ export default function Home() {
       firstName: form.firstName.trim(),
       lastName: form.lastName.trim(),
       email: form.email.trim(),
+      pseudo: form.pseudo.trim(),
     };
-    if (!trimmed.firstName || !trimmed.lastName || !trimmed.email) {
+    if (
+      !trimmed.firstName ||
+      !trimmed.lastName ||
+      !trimmed.email ||
+      !trimmed.pseudo
+    ) {
       setFormError("Merci de compléter tous les champs.");
       return;
     }
@@ -121,6 +207,8 @@ export default function Home() {
         }
         writeCookie("he2b_firstName", trimmed.firstName);
         writeCookie("he2b_lastName", trimmed.lastName);
+        writeCookie("he2b_email", trimmed.email);
+        writeCookie("he2b_pseudo", trimmed.pseudo);
         setHasRegistration(true);
         setIsModalOpen(false);
         router.push(
@@ -141,9 +229,30 @@ export default function Home() {
   useEffect(() => {
     const firstName = readCookie("he2b_firstName");
     const lastName = readCookie("he2b_lastName");
-    if (firstName && lastName) {
+    const email = readCookie("he2b_email");
+    const pseudo = readCookie("he2b_pseudo");
+    if (firstName && lastName && email) {
       setHasRegistration(true);
     }
+    if (email) {
+      setForm((prev) => ({ ...prev, email }));
+    }
+    if (pseudo) {
+      setForm((prev) => ({ ...prev, pseudo }));
+    }
+  }, []);
+
+  useEffect(() => {
+    const email = readCookie("he2b_email");
+    if (!email) return;
+    fetch(`/api/score-limit?email=${encodeURIComponent(email)}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.blocked) {
+          setIsLimitReached(true);
+        }
+      })
+      .catch(() => {});
   }, []);
 
   return (
@@ -162,24 +271,41 @@ export default function Home() {
         {t("title")}
       </h1>
       <p className="text-gray-500 text-sm text-center -mt-5">HE2B Edition !</p>
-      <SkinSelector
-        skins={Object.values(SKINS)}
-        selectedSkin={selectedSkinId}
-        onSelect={(skinId: string) => setSelectedSkinId(skinId as SkinKey)}
+      {isLimitReached ? (
+        <div className="mx-6 max-w-md rounded-2xl bg-gray-50 px-5 py-4 text-center text-sm text-gray-600">
+          <div className="text-he2b font-extrabold">
+            Merci d&apos;avoir participé !
+          </div>
+          <p className="mt-2">
+            Tu as atteint la limite de <span className="font-semibold">3</span>{" "}
+            participations.
+          </p>
+        </div>
+      ) : (
+        <>
+          <SkinSelector
+            skins={Object.values(SKINS)}
+            selectedSkin={selectedSkinId}
+            onSelect={(skinId: string) => setSelectedSkinId(skinId as SkinKey)}
+          />
+          <p className="text-center">
+            <span className="font-bold">{selectedSkin.name}</span>
+            <br />
+            <span className="text-gray-400 text-sm text-center">
+              {selectedSkin.description}
+            </span>
+          </p>
+          <DifficultySelector
+            value={difficulty}
+            onSelect={(value: string) => setDifficulty(value)}
+            options={["🌱 Facile", "⚡ Normal", "🔥 Difficile"]}
+          />
+        </>
+      )}
+      <CTAButton
+        label={isLimitReached ? "Voir les scores" : "Jouer"}
+        onClick={handleStart}
       />
-      <p className="text-center">
-        <span className="font-bold">{selectedSkin.name}</span>
-        <br />
-        <span className="text-gray-400 text-sm text-center">
-          {selectedSkin.description}
-        </span>
-      </p>
-      <DifficultySelector
-        value={difficulty}
-        onSelect={(value: string) => setDifficulty(value)}
-        options={["🌱 Facile", "⚡ Normal", "🔥 Difficile"]}
-      />
-      <CTAButton label="Jouer" onClick={handleStart} />
       <p className=" text-gray-400 text-sm text-center">
         <span>5 niveaux de 20 secondes !</span>
         <br />
@@ -199,10 +325,38 @@ export default function Home() {
                 Avant de jouer
               </h2>
               <p className="mt-1 text-sm text-gray-500">
-                Entre ton nom, prénom et email.
+                Entre ton nom, prénom, email et ton pseudo.
               </p>
             </div>
             <form className="mt-4 space-y-3" onSubmit={handleSubmit}>
+              <div>
+                <label className="text-xs font-semibold text-gray-600">
+                  Pseudo
+                </label>
+                <div className="mt-1 flex items-center gap-2">
+                  <input
+                    className="w-full rounded-full border border-gray-200 px-4 py-2 text-sm focus:border-[#D91A5B] focus:outline-none"
+                    value={form.pseudo}
+                    onInput={() => setFormError("")}
+                    readOnly
+                    type="text"
+                    name="pseudo"
+                    autoComplete="nickname"
+                  />
+                  <button
+                    className="rounded-full border border-gray-200 px-3 py-2 text-[10px] font-bold text-gray-600 transition active:scale-95"
+                    type="button"
+                    onClick={() =>
+                      setForm((prev) => ({
+                        ...prev,
+                        pseudo: generatePseudo(),
+                      }))
+                    }
+                  >
+                    Regénérer
+                  </button>
+                </div>
+              </div>
               <div>
                 <label className="text-xs font-semibold text-gray-600">
                   Prénom

@@ -5,6 +5,7 @@ type RegistrationPayload = {
   firstName?: string;
   lastName?: string;
   email?: string;
+  pseudo?: string;
 };
 
 const isValidEmail = (value: string) =>
@@ -28,8 +29,9 @@ export async function POST(request: Request) {
   const firstName = payload.firstName?.trim() ?? "";
   const lastName = payload.lastName?.trim() ?? "";
   const email = payload.email?.trim() ?? "";
+  const pseudo = payload.pseudo?.trim() ?? "";
 
-  if (!firstName || !lastName || !email) {
+  if (!firstName || !lastName || !email || !pseudo) {
     return NextResponse.json(
       { error: "Missing required fields." },
       { status: 400 },
@@ -45,6 +47,19 @@ export async function POST(request: Request) {
     where: { email },
   });
   if (existing) {
+    if (existing.pseudo !== pseudo) {
+      try {
+        await prisma.playerRegistration.update({
+          where: { id: existing.id },
+          data: { pseudo },
+        });
+      } catch {
+        return NextResponse.json(
+          { error: "Failed to update registration." },
+          { status: 500 },
+        );
+      }
+    }
     return NextResponse.json({ ok: true });
   }
 
@@ -54,6 +69,7 @@ export async function POST(request: Request) {
         firstName,
         lastName,
         email,
+        pseudo,
       },
     });
   } catch (error) {

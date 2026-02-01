@@ -63,9 +63,11 @@ export default function middleware(request: NextRequest) {
     }
 
     const segments = pathname.split("/").filter(Boolean);
-    const locale = routing.locales.includes(segments[0] ?? "")
-      ? segments[0]
-      : routing.defaultLocale;
+    const maybeLocale = segments[0];
+    const locale =
+      maybeLocale && routing.locales.includes(maybeLocale as (typeof routing.locales)[number])
+        ? (maybeLocale as (typeof routing.locales)[number])
+        : routing.defaultLocale;
     const closedPath = `/${locale}/closed`;
 
     if (pathname !== closedPath) {
@@ -93,9 +95,12 @@ export default function middleware(request: NextRequest) {
         const data = (await res.json()) as { blocked?: boolean };
         if (data?.blocked) {
           const segments = pathname.split("/").filter(Boolean);
-          const locale = routing.locales.includes(segments[0] ?? "")
-            ? segments[0]
-            : routing.defaultLocale;
+          const maybeLocale = segments[0];
+          const locale =
+            maybeLocale &&
+            routing.locales.includes(maybeLocale as (typeof routing.locales)[number])
+              ? (maybeLocale as (typeof routing.locales)[number])
+              : routing.defaultLocale;
           const redirectUrl = request.nextUrl.clone();
           redirectUrl.pathname = `/${locale}/scoreboard`;
           redirectUrl.searchParams.set("limit", "1");

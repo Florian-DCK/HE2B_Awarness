@@ -1,5 +1,6 @@
 const BRUSSELS_TZ = "Europe/Brussels";
 const TOKEN_LENGTH = 8;
+const TOKEN_ALPHABET = "0123456789abcdefghijklmnopqrstuvwxyz";
 
 const brusselsDateFormatter = new Intl.DateTimeFormat("en-CA", {
   timeZone: BRUSSELS_TZ,
@@ -12,14 +13,13 @@ export const getBrusselsDateString = (date = new Date()) => {
   return brusselsDateFormatter.format(date);
 };
 
-const bytesToBase36 = (bytes: Uint8Array, length = TOKEN_LENGTH) => {
-  let value = 0n;
-  const limit = Math.min(bytes.length, 8);
-  for (let i = 0; i < limit; i += 1) {
-    value = (value << 8n) + BigInt(bytes[i]);
+const bytesToToken = (bytes: Uint8Array, length = TOKEN_LENGTH) => {
+  let output = "";
+  for (let i = 0; output.length < length; i += 1) {
+    const index = bytes[i % bytes.length] % TOKEN_ALPHABET.length;
+    output += TOKEN_ALPHABET[index];
   }
-  const raw = value.toString(36);
-  return raw.padStart(length, "0").slice(0, length);
+  return output;
 };
 
 export const getDailyToken = async (date = new Date()) => {
@@ -28,6 +28,5 @@ export const getDailyToken = async (date = new Date()) => {
   const input = `${dateString}|${secret}`;
   const data = new TextEncoder().encode(input);
   const digest = await crypto.subtle.digest("SHA-256", data);
-  return bytesToBase36(new Uint8Array(digest));
+  return bytesToToken(new Uint8Array(digest));
 };
-

@@ -2,8 +2,9 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocale } from "next-intl";
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import He2bBar from "../../components/He2bBar";
+import { getDailyPrefixFromPathname } from "@/lib/daily-token-client";
 
 const HE2B_COLORS = {
   yellow: "#F5C518",
@@ -330,10 +331,12 @@ export default function GamePage() {
   const router = useRouter();
   const locale = useLocale();
   const searchParams = useSearchParams();
+  const pathname = usePathname();
+  const dailyPrefix = getDailyPrefixFromPathname(pathname);
 
   const goToHome = useCallback(() => {
-    router.push(`/${locale}`);
-  }, [router, locale]);
+    router.push(`${dailyPrefix}/${locale}`);
+  }, [router, locale, dailyPrefix]);
 
   const readCookie = (name: string) => {
     if (typeof document === "undefined") return "";

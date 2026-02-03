@@ -2,6 +2,7 @@ import createMiddleware from "next-intl/middleware";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { routing } from "./i18n/routing";
+import { getDailyToken } from "./lib/daily-token";
 
 const TIME_ZONE = "Europe/Brussels";
 const OPEN_HOUR = 10;
@@ -40,7 +41,43 @@ const isOpenNow = () => {
   return hour >= OPEN_HOUR && hour < CLOSE_HOUR;
 };
 
-export default function middleware(request: NextRequest) {
+const getLocaleFromSegments = (segments: string[]) => {
+  const maybeLocale = segments[0];
+  return maybeLocale &&
+    routing.locales.includes(maybeLocale as (typeof routing.locales)[number])
+    ? (maybeLocale as (typeof routing.locales)[number])
+    : routing.defaultLocale;
+};
+
+const isScoreboardPath = (segments: string[]) => {
+  if (segments.length < 2) return false;
+  if (!routing.locales.includes(segments[0] as (typeof routing.locales)[number]))
+    return false;
+  return segments[1] === "scoreboard" && segments[2] !== "admin";
+};
+
+const isAdminPath = (segments: string[]) => {
+  if (segments.length < 2) return false;
+  if (!routing.locales.includes(segments[0] as (typeof routing.locales)[number]))
+    return false;
+  return segments[1] === "admin";
+};
+
+const isScoreboardAdminPath = (segments: string[]) => {
+  if (segments.length < 3) return false;
+  if (!routing.locales.includes(segments[0] as (typeof routing.locales)[number]))
+    return false;
+  return segments[1] === "scoreboard" && segments[2] === "admin";
+};
+
+const isClosedPath = (segments: string[]) => {
+  if (segments.length < 2) return false;
+  if (!routing.locales.includes(segments[0] as (typeof routing.locales)[number]))
+    return false;
+  return segments[1] === "closed";
+};
+
+export default async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   if (
@@ -54,6 +91,35 @@ export default function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  const segments = pathname.split("/").filter(Boolean);
+  const dailyToken = await getDailyToken();
+  const hasTokenPrefix = segments[0] === dailyToken;
+  const effectiveSegments = hasTokenPrefix ? segments.slice(1) : segments;
+
+  if (!hasTokenPrefix) {
+    if (
+      !isScoreboardPath(effectiveSegments) &&
+      !isScoreboardAdminPath(effectiveSegments) &&
+      !isAdminPath(effectiveSegments) &&
+      !isClosedPath(effectiveSegments)
+    ) {
+      return new NextResponse("Not Found", { status: 404 });
+    }
+  }
+
+  if (hasTokenPrefix) {
+    if (effectiveSegments.length === 0) {
+      return new NextResponse("Not Found", { status: 404 });
+    }
+    if (
+      isScoreboardPath(effectiveSegments) ||
+      isScoreboardAdminPath(effectiveSegments) ||
+      isAdminPath(effectiveSegments)
+    ) {
+      return new NextResponse("Not Found", { status: 404 });
+    }
+  }
+
   if (!isOpenNow()) {
     if (pathname.includes("/admin")) {
       return intlMiddleware(request);
@@ -65,12 +131,7 @@ export default function middleware(request: NextRequest) {
       );
     }
 
-    const segments = pathname.split("/").filter(Boolean);
-    const maybeLocale = segments[0];
-    const locale =
-      maybeLocale && routing.locales.includes(maybeLocale as (typeof routing.locales)[number])
-        ? (maybeLocale as (typeof routing.locales)[number])
-        : routing.defaultLocale;
+    const locale = getLocaleFromSegments(effectiveSegments);
     const closedPath = `/${locale}/closed`;
 
     if (pathname !== closedPath) {
@@ -80,7 +141,7 @@ export default function middleware(request: NextRequest) {
     }
   }
 
-  if (request.method === "GET" && pathname.includes("/game")) {
+  if (request.method === "GET" && effectiveSegments.includes("game")) {
     const email = parseCookie(request.headers.get("cookie"), "he2b_email");
     if (email) {
       const url = new URL("/api/score-limit", request.nextUrl.origin);
@@ -93,25 +154,35 @@ export default function middleware(request: NextRequest) {
       });
       return limitRes.then(async (res) => {
         if (!res.ok) {
+          if (hasTokenPrefix) {
+            const rewriteUrl = request.nextUrl.clone();
+            rewriteUrl.pathname = `/${effectiveSegments.join("/")}`;
+            return NextResponse.rewrite(rewriteUrl);
+          }
           return intlMiddleware(request);
         }
         const data = (await res.json()) as { blocked?: boolean };
         if (data?.blocked) {
-          const segments = pathname.split("/").filter(Boolean);
-          const maybeLocale = segments[0];
-          const locale =
-            maybeLocale &&
-            routing.locales.includes(maybeLocale as (typeof routing.locales)[number])
-              ? (maybeLocale as (typeof routing.locales)[number])
-              : routing.defaultLocale;
+          const locale = getLocaleFromSegments(effectiveSegments);
           const redirectUrl = request.nextUrl.clone();
           redirectUrl.pathname = `/${locale}/scoreboard`;
           redirectUrl.searchParams.set("limit", "1");
           return NextResponse.redirect(redirectUrl);
         }
+        if (hasTokenPrefix) {
+          const rewriteUrl = request.nextUrl.clone();
+          rewriteUrl.pathname = `/${effectiveSegments.join("/")}`;
+          return NextResponse.rewrite(rewriteUrl);
+        }
         return intlMiddleware(request);
       });
     }
+  }
+
+  if (hasTokenPrefix) {
+    const rewriteUrl = request.nextUrl.clone();
+    rewriteUrl.pathname = `/${effectiveSegments.join("/")}`;
+    return NextResponse.rewrite(rewriteUrl);
   }
 
   return intlMiddleware(request);

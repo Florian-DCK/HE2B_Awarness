@@ -44,28 +44,44 @@ export default function ScoreboardPage() {
 
   useEffect(() => {
     let isMounted = true;
-    fetch("/api/scores")
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error("Erreur serveur");
-        }
-        return response.json();
-      })
-      .then((data) => {
-        if (!isMounted) return;
-        const list = Array.isArray(data?.scores) ? data.scores : [];
-        setScores(list);
-      })
-      .catch(() => {
-        if (!isMounted) return;
-        setError("Impossible de charger le leaderboard.");
-      })
-      .finally(() => {
-        if (!isMounted) return;
-        setLoading(false);
-      });
+
+    const fetchScores = (showLoading: boolean) => {
+      if (showLoading) {
+        setLoading(true);
+      }
+      fetch("/api/scores")
+        .then((response) => {
+          if (!response.ok) {
+            throw new Error("Erreur serveur");
+          }
+          return response.json();
+        })
+        .then((data) => {
+          if (!isMounted) return;
+          const list = Array.isArray(data?.scores) ? data.scores : [];
+          setScores(list);
+          setError("");
+        })
+        .catch(() => {
+          if (!isMounted) return;
+          setError("Impossible de charger le leaderboard.");
+        })
+        .finally(() => {
+          if (!isMounted) return;
+          if (showLoading) {
+            setLoading(false);
+          }
+        });
+    };
+
+    fetchScores(true);
+    const intervalId = window.setInterval(() => {
+      fetchScores(false);
+    }, 30000);
+
     return () => {
       isMounted = false;
+      window.clearInterval(intervalId);
     };
   }, []);
 

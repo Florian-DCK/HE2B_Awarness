@@ -44,7 +44,10 @@ export default function ScoreboardAdminPage() {
   const [scores, setScores] = useState<ScoreEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [qrValue, setQrValue] = useState("");
+  const fixedQrValue =
+    typeof window !== "undefined"
+      ? window.location.origin + "/" + locale
+      : "/" + locale;
 
   useEffect(() => {
     const saved = sessionStorage.getItem("admin_password") ?? "";
@@ -122,31 +125,6 @@ export default function ScoreboardAdminPage() {
     };
   }, [authorized]);
 
-  useEffect(() => {
-    if (!authorized) return;
-    let active = true;
-    const loadDailyToken = async () => {
-      try {
-        const response = await fetch("/api/daily-token", {
-          cache: "no-store",
-          headers: { "x-admin-password": password },
-        });
-        if (!response.ok) return;
-        const data = (await response.json()) as { token?: string };
-        if (!active || !data?.token) return;
-        if (typeof window !== "undefined") {
-          setQrValue(`${window.location.origin}/${data.token}/${locale}`);
-        }
-      } catch {
-        // Ignore token fetch errors; fallback to locale-only url.
-      }
-    };
-    loadDailyToken();
-    return () => {
-      active = false;
-    };
-  }, [authorized, locale, password]);
-
   if (!authorized) {
     return (
       <main className="min-h-[100dvh] bg-white">
@@ -219,7 +197,7 @@ export default function ScoreboardAdminPage() {
               <div className="mt-4 flex justify-center lg:justify-start">
                 <div className="rounded-2xl border border-gray-200 bg-white p-3 shadow-sm">
                   <QRCodeCanvas
-                    value={qrValue || `/${locale}`}
+                    value={fixedQrValue}
                     size={150}
                     bgColor="#ffffff"
                     fgColor="#0a0a14"
@@ -227,11 +205,9 @@ export default function ScoreboardAdminPage() {
                   />
                 </div>
               </div>
-              {qrValue && (
-                <div className="mt-2 text-center text-[10px] text-gray-400 lg:text-left">
-                  {qrValue}
-                </div>
-              )}
+              <div className="mt-2 text-center text-[10px] text-gray-400 lg:text-left">
+                {fixedQrValue}
+              </div>
             </div>
           </section>
 

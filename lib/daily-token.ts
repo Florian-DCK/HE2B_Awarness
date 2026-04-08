@@ -1,3 +1,5 @@
+export const DAILY_PLAY_LIMIT = 3;
+
 const BRUSSELS_TZ = "Europe/Brussels";
 const TOKEN_LENGTH = 8;
 const TOKEN_ALPHABET = "0123456789abcdefghijklmnopqrstuvwxyz";

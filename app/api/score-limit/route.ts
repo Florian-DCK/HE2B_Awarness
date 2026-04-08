@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "../../lib/prisma";
+import { getBrusselsDateString, DAILY_PLAY_LIMIT } from "@/lib/daily-token";
 
 const getClientIp = (request: Request) => {
   const forwarded = request.headers.get("x-forwarded-for");
@@ -27,16 +28,19 @@ export async function GET(request: Request) {
 
   try {
     const ip = getClientIp(request);
-    const emailCount = await prisma.scoreboard.count({ where: { email } });
-    const ipCount = ip
-      ? await prisma.scoreboard.count({ where: { ip } })
-      : 0;
+    const today = getBrusselsDateString();
+    const [emailCount, ipCount] = await Promise.all([
+      prisma.dailyPlayRecord.count({ where: { email, date: today } }),
+      ip
+        ? prisma.dailyPlayRecord.count({ where: { ip, date: today } })
+        : Promise.resolve(0),
+    ]);
 
-    const blocked = emailCount >= 3 || ipCount >= 3;
+    const blocked = emailCount >= DAILY_PLAY_LIMIT || ipCount >= DAILY_PLAY_LIMIT;
     return NextResponse.json({
       blocked,
-      remainingByEmail: Math.max(0, 3 - emailCount),
-      remainingByIp: ip ? Math.max(0, 3 - ipCount) : null,
+      remainingByEmail: Math.max(0, DAILY_PLAY_LIMIT - emailCount),
+      remainingByIp: ip ? Math.max(0, DAILY_PLAY_LIMIT - ipCount) : null,
     });
   } catch {
     return NextResponse.json(

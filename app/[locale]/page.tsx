@@ -1,21 +1,18 @@
 "use client";
 import Image from "next/image";
 import { useLocale, useTranslations } from "next-intl";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useEffect, useState, FormEvent } from "react";
 import SkinSelector from "../components/SkinSelector";
 import DifficultySelector from "../components/DifficultySelector";
 import CTAButton from "../components/CTAButton";
 import He2bBar from "../components/He2bBar";
 import Footer from "../components/Footer";
-import { getDailyPrefixFromPathname } from "@/lib/daily-token-client";
 
 export default function Home() {
   const t = useTranslations("HomePage");
   const locale = useLocale();
   const router = useRouter();
-  const pathname = usePathname();
-  const dailyPrefix = getDailyPrefixFromPathname(pathname);
   const SKINS = {
     diplome: {
       id: "diplome",
@@ -164,7 +161,7 @@ export default function Home() {
     }
     if (hasRegistration) {
       router.push(
-        `${dailyPrefix}/${locale}/game?skin=${selectedSkinId}&difficulty=${getDifficultyValue(
+        `/${locale}/game?skin=${selectedSkinId}&difficulty=${getDifficultyValue(
           difficulty,
         )}`,
       );
@@ -215,7 +212,7 @@ export default function Home() {
         setHasRegistration(true);
         setIsModalOpen(false);
         router.push(
-          `${dailyPrefix}/${locale}/game?skin=${selectedSkinId}&difficulty=${getDifficultyValue(
+          `/${locale}/game?skin=${selectedSkinId}&difficulty=${getDifficultyValue(
             difficulty,
           )}`,
         );

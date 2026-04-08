@@ -34,3 +34,11 @@ model Scoreboard {
   level     Int
   createdAt DateTime @default(now())
 }
+
+model DailyPlayRecord {
+  id        String   @id @default(cuid())
+  email     String
+  ip        String?
+  date      String   // Format YYYY-MM-DD Brussels timezone
+  createdAt DateTime @default(now())
+}

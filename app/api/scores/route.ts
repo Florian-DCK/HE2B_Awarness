@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "../../lib/prisma";
+import { getBrusselsDateString, DAILY_PLAY_LIMIT } from "@/lib/daily-token";
 
 type ScorePayload = {
   firstName?: string;
@@ -109,20 +110,22 @@ export async function POST(request: Request) {
 
   try {
     const ip = getClientIp(request);
-    const userWhere = { email };
+    const today = getBrusselsDateString();
 
-    if (ip) {
-      const ipCount = await prisma.scoreboard.count({ where: { ip } });
-      if (ipCount >= 3) {
-        return NextResponse.json(
-          { error: "Too many submissions from this IP." },
-          { status: 429 },
-        );
-      }
+    const dailyIpCount = ip
+      ? await prisma.dailyPlayRecord.count({ where: { ip, date: today } })
+      : 0;
+    if (dailyIpCount >= DAILY_PLAY_LIMIT) {
+      return NextResponse.json(
+        { error: "Too many submissions from this IP." },
+        { status: 429 },
+      );
     }
 
-    const userCount = await prisma.scoreboard.count({ where: userWhere });
-    if (userCount >= 3) {
+    const dailyEmailCount = await prisma.dailyPlayRecord.count({
+      where: { email, date: today },
+    });
+    if (dailyEmailCount >= DAILY_PLAY_LIMIT) {
       return NextResponse.json(
         { error: "Too many submissions for this player." },
         { status: 429 },
@@ -140,6 +143,10 @@ export async function POST(request: Request) {
         maxCombo,
         level,
       },
+    });
+
+    await prisma.dailyPlayRecord.create({
+      data: { email, ip: ip || null, date: today },
     });
   } catch {
     return NextResponse.json(

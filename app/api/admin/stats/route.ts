@@ -47,7 +47,7 @@ export async function GET(request: Request) {
       _count: { _all: true },
     });
     const totalFromGroups = participationsByEmail.reduce(
-      (sum, entry) => sum + entry._count._all,
+      (sum: number, entry) => sum + entry._count._all,
       0,
     );
     const avgParticipationsPerPlayer =

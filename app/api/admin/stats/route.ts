@@ -47,7 +47,7 @@ export async function GET(request: Request) {
       _count: { _all: true },
     });
     const totalFromGroups = participationsByEmail.reduce(
-      (sum, entry) => sum + entry._count._all,
+      (sum: number, entry: { _count: { _all: number } }) => sum + entry._count._all,
       0,
     );
     const avgParticipationsPerPlayer =
@@ -105,11 +105,11 @@ export async function GET(request: Request) {
         uniqueRegistrations > 0
           ? uniquePlayersWithScores / uniqueRegistrations
           : 0,
-      participationByDay: participationByDay.map((row) => ({
+      participationByDay: participationByDay.map((row: { day: Date; count: number }) => ({
         day: row.day.toISOString(),
         count: row.count,
       })),
-      registrationsByDay: registrationsByDay.map((row) => ({
+      registrationsByDay: registrationsByDay.map((row: { day: Date; count: number }) => ({
         day: row.day.toISOString(),
         count: row.count,
       })),

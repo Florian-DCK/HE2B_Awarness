@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocale } from "next-intl";
 import { useRouter, useSearchParams } from "next/navigation";
 import He2bBar from "../../components/He2bBar";
+import Footer from "../../components/Footer";
 
 const HE2B_COLORS = {
   yellow: "#F5C518",
@@ -1232,14 +1233,6 @@ export default function GamePage() {
                 </div>
               </div>
 
-              <div className="rounded-full bg-[linear-gradient(135deg,#fff3cd,#ffeeba)] px-6 py-2 text-sm font-bold text-[#856404]">
-                {
-                  END_BADGES[
-                    Math.min(Math.floor(score / 200), END_BADGES.length - 1)
-                  ]
-                }
-              </div>
-
               {displayScores.length > 0 && (
                 <div className="w-full max-w-[320px] rounded-2xl bg-gray-50 p-4">
                   <div className="mb-2 text-center text-xs font-extrabold text-gray-700">
@@ -1307,9 +1300,7 @@ export default function GamePage() {
                 )}
               </div>
             </div>
-            <div className="border-t border-gray-100 px-2 py-2 text-center text-[11px] text-gray-400">
-              HE2B - Haute École Bruxelles-Brabant
-            </div>
+            <Footer />
           </div>
         )}
       </div>

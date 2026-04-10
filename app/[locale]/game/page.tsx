@@ -374,6 +374,7 @@ export default function GamePage() {
   const LANE_COOLDOWN_MS = 150;
   const scoreSubmittedRef = useRef(false);
   const submitPromiseRef = useRef<Promise<void> | null>(null);
+  const gameStartTimeRef = useRef<number>(Date.now());
 
   useEffect(() => {
     comboRef.current = combo;
@@ -816,6 +817,10 @@ export default function GamePage() {
         const email = readCookie("he2b_email");
         const pseudo = readCookie("he2b_pseudo");
         if (firstName && lastName && email) {
+          const durationSeconds =
+            gameStartTimeRef.current > 0
+              ? Math.round((Date.now() - gameStartTimeRef.current) / 1000)
+              : null;
           submitPromiseRef.current = fetch("/api/scores", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -827,6 +832,7 @@ export default function GamePage() {
               score,
               maxCombo,
               level: currentLevel,
+              durationSeconds,
             }),
           })
             .then(() => {})
@@ -914,6 +920,7 @@ export default function GamePage() {
     objectIdRef.current = 0;
     scoreSubmittedRef.current = false;
     submitPromiseRef.current = null;
+    gameStartTimeRef.current = Date.now();
     setIsLimitReached(false);
     setScreen("game");
     setTimeout(() => showComment("start"), 500);

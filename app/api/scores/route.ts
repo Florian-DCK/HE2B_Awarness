@@ -10,6 +10,7 @@ type ScorePayload = {
   score?: number;
   maxCombo?: number;
   level?: number;
+  durationSeconds?: number | null;
 };
 
 const getClientIp = (request: Request) => {
@@ -85,6 +86,12 @@ export async function POST(request: Request) {
   const score = payload.score ?? null;
   const maxCombo = payload.maxCombo ?? null;
   const level = payload.level ?? null;
+  const durationSeconds =
+    payload.durationSeconds != null &&
+    Number.isFinite(payload.durationSeconds) &&
+    payload.durationSeconds > 0
+      ? Math.round(payload.durationSeconds)
+      : null;
 
   if (
     !firstName ||
@@ -112,16 +119,6 @@ export async function POST(request: Request) {
     const ip = getClientIp(request);
     const today = getBrusselsDateString();
 
-    const dailyIpCount = ip
-      ? await prisma.dailyPlayRecord.count({ where: { ip, date: today } })
-      : 0;
-    if (dailyIpCount >= DAILY_PLAY_LIMIT) {
-      return NextResponse.json(
-        { error: "Too many submissions from this IP." },
-        { status: 429 },
-      );
-    }
-
     const dailyEmailCount = await prisma.dailyPlayRecord.count({
       where: { email, date: today },
     });
@@ -142,6 +139,7 @@ export async function POST(request: Request) {
         score,
         maxCombo,
         level,
+        durationSeconds,
       },
     });
 

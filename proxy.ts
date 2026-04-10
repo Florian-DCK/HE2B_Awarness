@@ -3,12 +3,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { routing } from "./i18n/routing";
 
-const TIME_ZONE = "Europe/Brussels";
-const OPEN_HOUR = 10;
-const CLOSE_HOUR = 18;
-
 const intlMiddleware = createMiddleware(routing);
-const BYPASS_HOURS_LIMIT = process.env.BYPASS_HOURS_LIMIT === "true";
 
 const parseCookie = (cookieHeader: string | null, name: string) => {
   if (!cookieHeader) return "";
@@ -21,23 +16,6 @@ const parseCookie = (cookieHeader: string | null, name: string) => {
   } catch {
     return raw;
   }
-};
-
-const getHourInTimeZone = (date: Date, timeZone: string) => {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone,
-    hour: "2-digit",
-    hour12: false,
-  }).formatToParts(date);
-  const hourPart = parts.find((part) => part.type === "hour");
-  const hour = hourPart ? Number.parseInt(hourPart.value, 10) : date.getUTCHours();
-  return Number.isNaN(hour) ? date.getUTCHours() : hour;
-};
-
-const isOpenNow = () => {
-  if (BYPASS_HOURS_LIMIT) return true;
-  const hour = getHourInTimeZone(new Date(), TIME_ZONE);
-  return hour >= OPEN_HOUR && hour < CLOSE_HOUR;
 };
 
 const getLocaleFromSegments = (segments: string[]) => {
@@ -63,21 +41,6 @@ export default async function middleware(request: NextRequest) {
   }
 
   const segments = pathname.split("/").filter(Boolean);
-
-  const isUnrestrictedPath =
-    (segments[0] && routing.locales.includes(segments[0] as (typeof routing.locales)[number])) &&
-    (segments[1] === "scoreboard" || segments[1] === "admin" || segments[1] === "closed");
-
-  if (!isOpenNow() && !isUnrestrictedPath) {
-    const locale = getLocaleFromSegments(segments);
-    const closedPath = `/${locale}/closed`;
-
-    if (pathname !== closedPath) {
-      const url = request.nextUrl.clone();
-      url.pathname = closedPath;
-      return NextResponse.redirect(url);
-    }
-  }
 
   if (request.method === "GET" && segments.includes("game")) {
     const email = parseCookie(request.headers.get("cookie"), "he2b_email");

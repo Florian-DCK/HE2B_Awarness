@@ -13,6 +13,7 @@ type StatsResponse = {
   averageScore: number;
   averageMaxCombo: number;
   averageLevel: number;
+  averageDuration: number | null;
   bestScore: number;
   bestCombo: number;
   maxLevel: number;
@@ -20,6 +21,7 @@ type StatsResponse = {
   conversionRate: number;
   participationByDay: { day: string; count: number }[];
   registrationsByDay: { day: string; count: number }[];
+  participationByHour: { day: string; hour: number; count: number }[];
 };
 
 const formatNumber = (value: number) =>
@@ -49,6 +51,14 @@ const formatDay = (value: string) => {
 
 const clampPercent = (value: number) =>
   Math.max(0, Math.min(100, Math.round(value)));
+
+const formatDuration = (seconds: number | null) => {
+  if (seconds === null || !Number.isFinite(seconds)) return "—";
+  const m = Math.floor(seconds / 60);
+  const s = Math.round(seconds % 60);
+  if (m === 0) return `${s} s`;
+  return `${m} min ${s.toString().padStart(2, "0")} s`;
+};
 
 type BarRowProps = {
   label: string;
@@ -86,6 +96,282 @@ const StatInfo = ({ text }: { text: string }) => (
     </span>
   </span>
 );
+
+const DAY_COLORS = [
+  "#F7941D",
+  "#00BFB3",
+  "#D91A5B",
+  "#8DC63F",
+  "#784CB7",
+  "#F5C518",
+  "#0070B8",
+];
+
+type TooltipState = {
+  xPct: number;
+  yPct: number;
+  day: string;
+  hour: number;
+  count: number;
+  color: string;
+};
+
+const dayLabel = (isoDay: string) => {
+  // isoDay = "2026-04-08T00:00:00.000Z" — le jour est déjà en heure Brussels
+  // On extrait directement depuis la partie date UTC pour éviter les décalages TZ
+  const [year, month, d] = isoDay.slice(0, 10).split("-");
+  const date = new Date(Number(year), Number(month) - 1, Number(d));
+  return date.toLocaleDateString("fr-BE", { day: "2-digit", month: "short" });
+};
+
+const HourlyLineChart = ({
+  data,
+}: {
+  data: { day: string; hour: number; count: number }[];
+}) => {
+  const WIDTH = 560;
+  const HEIGHT = 200;
+  const PL = 28; // padding left
+  const PR = 16; // padding right
+  const PT = 12; // padding top
+  const PB = 32; // padding bottom
+  const CW = WIDTH - PL - PR;
+  const CH = HEIGHT - PT - PB;
+
+  const allDays = useMemo(
+    () => Array.from(new Set(data.map((d) => d.day))).sort(),
+    [data],
+  );
+
+  const [activeDays, setActiveDays] = useState<Set<string>>(
+    () => new Set(allDays),
+  );
+  const [tooltip, setTooltip] = useState<TooltipState | null>(null);
+
+  // Re-sync quand les données changent (nouveau chargement)
+  const prevDaysKey = allDays.join(",");
+  const [lastDaysKey, setLastDaysKey] = useState(prevDaysKey);
+  if (prevDaysKey !== lastDaysKey) {
+    setLastDaysKey(prevDaysKey);
+    setActiveDays(new Set(allDays));
+  }
+
+  if (allDays.length === 0) return null;
+
+  const maxCount = Math.max(...data.map((d) => d.count), 1);
+
+  const xOf = (hour: number) => PL + (hour / 23) * CW;
+  const yOf = (count: number) => PT + CH - (count / maxCount) * CH;
+
+  const pointsForDay = (day: string) =>
+    Array.from({ length: 24 }, (_, h) => {
+      const found = data.find((d) => d.day === day && d.hour === h);
+      return { h, count: found?.count ?? 0 };
+    });
+
+  const pathFor = (day: string) =>
+    pointsForDay(day)
+      .map((p, i) => `${i === 0 ? "M" : "L"} ${xOf(p.h)},${yOf(p.count)}`)
+      .join(" ");
+
+  const yTicks = [0, Math.round(maxCount / 2), maxCount].filter(
+    (v, i, arr) => arr.indexOf(v) === i,
+  );
+  const xTickHours = [0, 3, 6, 9, 12, 15, 18, 21, 23];
+
+  const allSelected = activeDays.size === allDays.length;
+
+  const toggleDay = (day: string) => {
+    setActiveDays((prev) => {
+      const next = new Set(prev);
+      if (next.has(day)) {
+        next.delete(day);
+      } else {
+        next.add(day);
+      }
+      return next;
+    });
+  };
+
+  const toggleAll = () => {
+    setActiveDays(allSelected ? new Set() : new Set(allDays));
+  };
+
+  // Calcul du transform du tooltip pour éviter le débordement
+  const tooltipTransform = tooltip
+    ? `translateX(${
+        tooltip.xPct < 15 ? "0%" : tooltip.xPct > 85 ? "-100%" : "-50%"
+      }) translateY(${tooltip.yPct < 25 ? "8px" : "calc(-100% - 8px)"})`
+    : undefined;
+
+  return (
+    <div>
+      {/* Boutons de sélection des jours */}
+      <div className="mb-3 flex flex-wrap gap-2">
+        <button
+          onClick={toggleAll}
+          className="cursor-pointer rounded-full border border-gray-300 px-3 py-1 text-[11px] font-semibold text-gray-500 transition-all hover:border-gray-400 hover:text-gray-700"
+        >
+          {allSelected ? "Tout désélect." : "Tout sélect."}
+        </button>
+        {allDays.map((day, i) => {
+          const color = DAY_COLORS[i % DAY_COLORS.length];
+          const active = activeDays.has(day);
+          return (
+            <button
+              key={day}
+              onClick={() => toggleDay(day)}
+              className="cursor-pointer flex items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] font-semibold transition-all"
+              style={{
+                borderColor: color,
+                background: active ? color : "transparent",
+                color: active ? "#fff" : color,
+                opacity: active ? 1 : 0.45,
+              }}
+            >
+              {dayLabel(day)}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Graphique */}
+      <div className="relative overflow-x-auto">
+        <svg
+          viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
+          className="w-full"
+          style={{ minWidth: 340 }}
+          onMouseLeave={() => setTooltip(null)}
+        >
+          {/* Grid */}
+          {yTicks.map((v) => (
+            <g key={v}>
+              <line
+                x1={PL}
+                x2={WIDTH - PR}
+                y1={yOf(v)}
+                y2={yOf(v)}
+                stroke="#f3f4f6"
+                strokeWidth={1}
+              />
+              <text
+                x={PL - 4}
+                y={yOf(v) + 4}
+                textAnchor="end"
+                fontSize={9}
+                fill="#d1d5db"
+              >
+                {v}
+              </text>
+            </g>
+          ))}
+
+          {/* X axis */}
+          {xTickHours.map((h) => (
+            <g key={h}>
+              <line
+                x1={xOf(h)}
+                x2={xOf(h)}
+                y1={PT}
+                y2={PT + CH}
+                stroke="#f3f4f6"
+                strokeWidth={1}
+                strokeDasharray="3 3"
+              />
+              <text
+                x={xOf(h)}
+                y={HEIGHT - 10}
+                textAnchor="middle"
+                fontSize={9}
+                fill="#9ca3af"
+              >
+                {`${h}h`}
+              </text>
+            </g>
+          ))}
+
+          {/* Lines + dots */}
+          {allDays.map((day, i) => {
+            if (!activeDays.has(day)) return null;
+            const color = DAY_COLORS[i % DAY_COLORS.length];
+            const pts = pointsForDay(day);
+            return (
+              <g key={day}>
+                <path
+                  d={pathFor(day)}
+                  fill="none"
+                  stroke={color}
+                  strokeWidth={2}
+                  strokeLinejoin="round"
+                  strokeLinecap="round"
+                />
+                {pts.map((p) => (
+                  <g key={p.h}>
+                    {/* Zone de hit large */}
+                    <circle
+                      cx={xOf(p.h)}
+                      cy={yOf(p.count)}
+                      r={10}
+                      fill="transparent"
+                      onMouseEnter={() =>
+                        setTooltip({
+                          xPct: (xOf(p.h) / WIDTH) * 100,
+                          yPct: (yOf(p.count) / HEIGHT) * 100,
+                          day,
+                          hour: p.h,
+                          count: p.count,
+                          color,
+                        })
+                      }
+                    />
+                    {/* Point visible uniquement si count > 0 */}
+                    {p.count > 0 && (
+                      <circle
+                        cx={xOf(p.h)}
+                        cy={yOf(p.count)}
+                        r={tooltip?.day === day && tooltip.hour === p.h ? 5 : 3}
+                        fill={color}
+                        style={{ pointerEvents: "none", transition: "r 0.1s" }}
+                      />
+                    )}
+                  </g>
+                ))}
+              </g>
+            );
+          })}
+        </svg>
+
+        {/* Tooltip */}
+        {tooltip && (
+          <div
+            className="pointer-events-none absolute z-10 rounded-xl border border-gray-100 bg-white px-3 py-2 shadow-[0_8px_24px_rgba(0,0,0,0.12)]"
+            style={{
+              left: `${tooltip.xPct}%`,
+              top: `${tooltip.yPct}%`,
+              transform: tooltipTransform,
+            }}
+          >
+            <div className="flex items-center gap-1.5">
+              <span
+                className="inline-block h-2 w-2 rounded-full"
+                style={{ background: tooltip.color }}
+              />
+              <span className="text-[11px] font-bold text-gray-700">
+                {dayLabel(tooltip.day)} — {tooltip.hour}h
+              </span>
+            </div>
+            <div className="mt-0.5 text-[13px] font-extrabold text-gray-900">
+              {tooltip.count}{" "}
+              <span className="font-normal text-gray-400">
+                participation{tooltip.count > 1 ? "s" : ""}
+              </span>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
 
 export default function AdminPage() {
   const [password, setPassword] = useState("");
@@ -139,6 +425,11 @@ export default function AdminPage() {
                   label: "Niveau en moyenne",
                   value: stats.averageLevel.toFixed(1).replace(".", ","),
                   help: "Niveau moyen atteint par partie.",
+                },
+                {
+                  label: "Durée moyenne",
+                  value: formatDuration(stats.averageDuration),
+                  help: "Durée moyenne d'une session de jeu (du lancement au résultat).",
                 },
                 {
                   label: "Dernière partie",
@@ -379,6 +670,20 @@ export default function AdminPage() {
                         ))}
                       </div>
                     </div>
+                  </div>
+                </div>
+              )}
+
+              {charts && stats.participationByHour.length > 0 && (
+                <div className="rounded-2xl border border-gray-100 bg-white px-5 py-4 shadow-[0_10px_30px_rgba(0,0,0,0.05)]">
+                  <div className="text-xs font-extrabold uppercase tracking-[0.2em] text-gray-400">
+                    Participations par heure
+                  </div>
+                  <p className="mt-1 text-[11px] text-gray-400">
+                    Nombre de parties lancées par heure de la journée, une ligne par jour.
+                  </p>
+                  <div className="mt-4">
+                    <HourlyLineChart data={stats.participationByHour} />
                   </div>
                 </div>
               )}

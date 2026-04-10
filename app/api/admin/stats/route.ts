@@ -60,7 +60,7 @@ export async function GET(request: Request) {
         : 0;
 
     const scoreAggregate = await prisma.scoreboard.aggregate({
-      _avg: { score: true, maxCombo: true, level: true },
+      _avg: { score: true, maxCombo: true, level: true, durationSeconds: true },
       _max: { score: true, maxCombo: true, level: true, createdAt: true },
     });
 
@@ -87,6 +87,18 @@ export async function GET(request: Request) {
       ORDER BY day ASC;
     `;
 
+    const participationByHour = await prisma.$queryRaw<
+      { day: Date; hour: number; count: number }[]
+    >`
+      SELECT
+        date_trunc('day', "createdAt" AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Brussels') AS day,
+        EXTRACT(HOUR FROM "createdAt" AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Brussels')::int AS hour,
+        COUNT(*)::int AS count
+      FROM "Scoreboard"
+      GROUP BY day, hour
+      ORDER BY day ASC, hour ASC;
+    `;
+
     return NextResponse.json({
       totalRegistrations,
       uniqueRegistrations,
@@ -97,6 +109,7 @@ export async function GET(request: Request) {
       averageScore: scoreAggregate._avg.score ?? 0,
       averageMaxCombo: scoreAggregate._avg.maxCombo ?? 0,
       averageLevel: scoreAggregate._avg.level ?? 0,
+      averageDuration: scoreAggregate._avg.durationSeconds ?? null,
       bestScore: scoreAggregate._max.score ?? 0,
       bestCombo: scoreAggregate._max.maxCombo ?? 0,
       maxLevel: scoreAggregate._max.level ?? 0,
@@ -113,6 +126,13 @@ export async function GET(request: Request) {
         day: row.day.toISOString(),
         count: row.count,
       })),
+      participationByHour: participationByHour.map(
+        (row: { day: Date; hour: number; count: number }) => ({
+          day: row.day.toISOString(),
+          hour: row.hour,
+          count: row.count,
+        }),
+      ),
     });
   } catch {
     return NextResponse.json(

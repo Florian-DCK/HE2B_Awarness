@@ -23,16 +23,17 @@ model PlayerRegistration {
 }
 
 model Scoreboard {
-  id        String   @id @default(cuid())
-  firstName String
-  lastName  String
-  email     String
-  pseudo    String?
-  ip        String?
-  score     Int
-  maxCombo  Int
-  level     Int
-  createdAt DateTime @default(now())
+  id              String   @id @default(cuid())
+  firstName       String
+  lastName        String
+  email           String
+  pseudo          String?
+  ip              String?
+  score           Int
+  maxCombo        Int
+  level           Int
+  durationSeconds Int?
+  createdAt       DateTime @default(now())
 }
 
 model DailyPlayRecord {

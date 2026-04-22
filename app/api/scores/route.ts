@@ -33,7 +33,7 @@ export async function GET() {
   try {
     // Récupère le meilleur score par personne (firstName + lastName)
     const scores = await prisma.scoreboard.findMany({
-      orderBy: { score: "desc" },
+      orderBy: [{ score: "desc" }, { createdAt: "asc" }],
       take: 50,
       select: {
         firstName: true,
@@ -43,6 +43,7 @@ export async function GET() {
         score: true,
         maxCombo: true,
         level: true,
+        createdAt: true,
       },
     });
 

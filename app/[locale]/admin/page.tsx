@@ -3,6 +3,18 @@
 import { useEffect, useMemo, useState } from "react";
 import He2bBar from "../../components/He2bBar";
 
+type Winner = {
+  firstName: string;
+  lastName: string;
+  email: string;
+  pseudo: string | null;
+  score: number;
+  maxCombo: number;
+  level: number;
+  durationSeconds: number | null;
+  createdAt: string;
+};
+
 type StatsResponse = {
   totalRegistrations: number;
   uniqueRegistrations: number;
@@ -376,6 +388,7 @@ const HourlyLineChart = ({
 export default function AdminPage() {
   const [password, setPassword] = useState("");
   const [stats, setStats] = useState<StatsResponse | null>(null);
+  const [winners, setWinners] = useState<Winner[]>([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -532,12 +545,82 @@ export default function AdminPage() {
       const data = (await response.json()) as StatsResponse;
       setStats(data);
       sessionStorage.setItem("admin_password", nextPassword);
+
+      try {
+        const winnersResponse = await fetch("/api/admin/winners", {
+          headers: { "x-admin-password": nextPassword },
+        });
+        if (winnersResponse.ok) {
+          const winnersData = (await winnersResponse.json()) as {
+            winners: Winner[];
+          };
+          setWinners(winnersData.winners ?? []);
+        } else {
+          setWinners([]);
+        }
+      } catch {
+        setWinners([]);
+      }
     } catch {
       setStats(null);
+      setWinners([]);
       setError("Mot de passe invalide.");
     } finally {
       setLoading(false);
     }
+  };
+
+  const exportWinnersCsv = () => {
+    if (winners.length === 0) return;
+    const header = [
+      "rang",
+      "prenom",
+      "nom",
+      "email",
+      "pseudo",
+      "score",
+      "maxCombo",
+      "level",
+      "durationSeconds",
+      "createdAt",
+    ];
+    const escape = (value: string | number | null) => {
+      const str = value == null ? "" : String(value);
+      if (/[",\n;]/.test(str)) {
+        return `"${str.replace(/"/g, '""')}"`;
+      }
+      return str;
+    };
+    const lines = [header.join(";")];
+    winners.forEach((w, idx) => {
+      lines.push(
+        [
+          idx + 1,
+          w.firstName,
+          w.lastName,
+          w.email,
+          w.pseudo ?? "",
+          w.score,
+          w.maxCombo,
+          w.level,
+          w.durationSeconds ?? "",
+          w.createdAt,
+        ]
+          .map(escape)
+          .join(";"),
+      );
+    });
+    const csv = "﻿" + lines.join("\r\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    const stamp = new Date().toISOString().slice(0, 10);
+    link.href = url;
+    link.download = `gagnants-he2b-${stamp}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   return (
@@ -687,6 +770,72 @@ export default function AdminPage() {
                   </div>
                 </div>
               )}
+
+              <div className="rounded-2xl border border-gray-100 bg-white px-5 py-4 shadow-[0_10px_30px_rgba(0,0,0,0.05)]">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <div className="text-xs font-extrabold uppercase tracking-[0.2em] text-gray-400">
+                      Gagnants
+                    </div>
+                    <p className="mt-1 text-[11px] text-gray-400">
+                      Top 50 des meilleurs scores. Un seul score par personne (le meilleur).
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={exportWinnersCsv}
+                    disabled={winners.length === 0}
+                    className="rounded-full bg-he2b px-4 py-2 text-xs font-bold uppercase tracking-wide text-white shadow-sm transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Exporter CSV
+                  </button>
+                </div>
+                {winners.length === 0 ? (
+                  <div className="mt-4 text-sm text-gray-500">
+                    Aucun gagnant pour le moment.
+                  </div>
+                ) : (
+                  <div className="mt-4 overflow-x-auto">
+                    <table className="min-w-full text-sm">
+                      <thead>
+                        <tr className="text-left text-[11px] font-bold uppercase tracking-wider text-gray-400">
+                          <th className="px-2 py-2">#</th>
+                          <th className="px-2 py-2">Prénom</th>
+                          <th className="px-2 py-2">Nom</th>
+                          <th className="px-2 py-2">Email</th>
+                          <th className="px-2 py-2">Pseudo</th>
+                          <th className="px-2 py-2 text-right">Score</th>
+                          <th className="px-2 py-2 text-right">Combo</th>
+                          <th className="px-2 py-2 text-right">Niveau</th>
+                          <th className="px-2 py-2">Date</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {winners.map((w, idx) => (
+                          <tr
+                            key={`${w.email}-${w.createdAt}`}
+                            className="border-t border-gray-100"
+                          >
+                            <td className="px-2 py-2 font-bold">{idx + 1}</td>
+                            <td className="px-2 py-2">{w.firstName}</td>
+                            <td className="px-2 py-2">{w.lastName}</td>
+                            <td className="px-2 py-2 text-gray-500">{w.email}</td>
+                            <td className="px-2 py-2">{w.pseudo ?? "—"}</td>
+                            <td className="px-2 py-2 text-right font-bold">
+                              {w.score}
+                            </td>
+                            <td className="px-2 py-2 text-right">{w.maxCombo}</td>
+                            <td className="px-2 py-2 text-right">{w.level}</td>
+                            <td className="px-2 py-2 text-gray-500">
+                              {new Date(w.createdAt).toLocaleString("fr-BE")}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
             </>
           )}
         </div>

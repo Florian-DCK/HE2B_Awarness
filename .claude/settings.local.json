@@ -1,0 +1,37 @@
+﻿{
+    "hooks":  {
+                  "SessionStart":  [
+                                       {
+                                           "hooks":  [
+                                                         {
+                                                             "command":  "powershell -NoProfile -File \"C:/Users/Florian/Documents/HE2B/HE2B_Awarness/.dual-graph/prime.ps1\"",
+                                                             "type":  "command"
+                                                         }
+                                                     ],
+                                           "matcher":  ""
+                                       }
+                                   ],
+                  "Stop":  [
+                               {
+                                   "hooks":  [
+                                                 {
+                                                     "command":  "powershell -NoProfile -File \"C:/Users/Florian/Documents/HE2B/HE2B_Awarness/.dual-graph/stop_hook.ps1\"",
+                                                     "type":  "command"
+                                                 }
+                                             ],
+                                   "matcher":  ""
+                               }
+                           ],
+                  "PreCompact":  [
+                                     {
+                                         "hooks":  [
+                                                       {
+                                                           "command":  "powershell -NoProfile -File \"C:/Users/Florian/Documents/HE2B/HE2B_Awarness/.dual-graph/prime.ps1\"",
+                                                           "type":  "command"
+                                                       }
+                                                   ],
+                                         "matcher":  ""
+                                     }
+                                 ]
+              }
+}

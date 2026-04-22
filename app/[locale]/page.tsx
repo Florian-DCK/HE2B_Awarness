@@ -416,6 +416,19 @@ export default function Home() {
                   {formError}
                 </div>
               )}
+              <div className="text-center text-xs text-gray-500">
+                En participant, tu acceptes le{" "}
+                <a
+                  href="/assets/reglement-he2b.pdf"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  download
+                  className="font-semibold text-he2b underline hover:opacity-80"
+                >
+                  Règlement
+                </a>
+                .
+              </div>
               <div className="flex items-center justify-between gap-2 pt-2">
                 <button
                   className="rounded-full border border-gray-200 px-4 py-2 text-xs font-bold text-gray-600 transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"

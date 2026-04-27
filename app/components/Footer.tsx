@@ -20,7 +20,7 @@ const SocialLink: React.FC<SocialLinkProps> = ({ href, label, children }) => (
 
 const Footer: React.FC = () => {
   return (
-    <footer className="border-t border-gray-100 px-2 py-2 text-center text-[11px] text-gray-400 absolute bottom-0 w-full inline-flex justify-center items-center gap-2">
+    <footer className="mt-auto border-t border-gray-100 bg-white px-2 py-2 text-center text-[11px] text-gray-400 w-full inline-flex justify-center items-center gap-2 flex-wrap">
       <span>HE2B - Haute École Bruxelles-Brabant</span>
       <SocialLink href="https://www.facebook.com/MyHe2b" label="Facebook">
         <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">

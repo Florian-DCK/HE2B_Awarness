@@ -12,7 +12,7 @@ const SkinSelector: React.FC<SkinSelectorProps> = ({
 	selectedSkin,
 	onSelect,
 }) => (
-	<div className="flex space-x-4 mt-4">
+	<div className="flex gap-2 sm:gap-4 mt-4 px-4 max-w-full">
 		{skins.map((skin) => (
 			<button
 				className={`size-14 rounded-lg border-[3px] cursor-pointer transition-all p-1.5 flex justify-center items-center ${

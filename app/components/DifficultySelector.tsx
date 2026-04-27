@@ -11,7 +11,7 @@ const DifficultySelector: React.FC<DifficultySelectorProps> = ({
 	onSelect,
 	options,
 }) => (
-	<div className="flex space-x-4 mt-4">
+	<div className="flex gap-2 sm:gap-4 mt-4 px-4 max-w-full flex-wrap justify-center">
 		{options.map((option) => (
 			<button
 				className={`py-2.5 px-4 rounded-full font-bold text-sm border-[3px] cursor-pointer transition-all p-1.5 flex justify-center items-center ${

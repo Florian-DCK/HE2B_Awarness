@@ -16,15 +16,15 @@ export default function Home() {
   const SKINS = {
     diplome: {
       id: "diplome",
-      name: "Diplômé",
-      description: '"Prêt pour la remise des diplômes !"',
+      name: "Diplômé·e",
+      description: '"Prêt·e pour la remise des diplômes !"',
       speedMod: 1,
       spawnMod: 1,
       image: "/assets/diplomePoulpe.png",
     },
     travail: {
       id: "travail",
-      name: "Studieux",
+      name: "Studieux·se",
       description: '"Multi-tâches niveau expert."',
       speedMod: 0.9,
       spawnMod: 1.1,
@@ -41,7 +41,7 @@ export default function Home() {
     },
     ecole: {
       id: "ecole",
-      name: "A%tudiant",
+      name: "Étudiant·e",
       description: '"Direction les cours !"',
       speedMod: 1.1,
       spawnMod: 0.9,
@@ -49,7 +49,7 @@ export default function Home() {
     },
     surf: {
       id: "surf",
-      name: "Surfeur",
+      name: "Surfeur·euse",
       description: '"Surfer sur les deadlines."',
       speedMod: 1.15,
       spawnMod: 0.85,
@@ -256,7 +256,7 @@ export default function Home() {
   }, []);
 
   return (
-    <main className="flex flex-col justify-center items-center h-screen gap-5">
+    <main className="flex flex-col justify-center items-center min-h-screen gap-5 pt-6 pb-4">
       <div className="w-full absolute top-0 left-0">
         <He2bBar />
       </div>
@@ -302,10 +302,6 @@ export default function Home() {
           />
         </>
       )}
-      <CTAButton
-        label={isLimitReached ? "Voir les scores" : "Jouer"}
-        onClick={handleStart}
-      />
       <p className=" text-gray-400 text-sm text-center">
         <span>5 niveaux de 20 secondes !</span>
         <br />
@@ -317,6 +313,10 @@ export default function Home() {
         <span className="block md:hidden">Tape sur la ligne !</span>
         <span className="hidden md:inline">Utilise D | F | J | K</span>
       </p>
+      <CTAButton
+        label={isLimitReached ? "Voir les scores" : "Jouer"}
+        onClick={handleStart}
+      />
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
